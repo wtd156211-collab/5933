@@ -33,3 +33,40 @@ React 和 TypeScript 用于构建类型安全的交互界面；流程图库用�
 10. 运行相关测试、类型检查、构建命令和必要的页面验证。
 11. 如果某项要求受现有仓库能力限制无法完整实现，请明确说明限制、已完成部分和未验证风险，不要虚构已实现功能。
 12. 最终总结修改的文件、核心行为变化、实际运行的验证命令、验证结果和剩余风险。
+
+---
+
+# 项目说明（实现部分）
+
+仓库初始为空（无既有工作流引擎或前端），因此按任务要求实现了最小集成范围的完整全栈应用。
+
+## 结构
+
+- `shared/` — 前后端共享的 TypeScript 领域逻辑：`types.ts`（数据模型）、`workflow.ts`（DAG 校验：循环/缺失依赖检测、拓扑分层）、`replay.ts`（回放帧计算与异常记录警告）
+- `server/` — Express API + 内存存储 + 异步执行引擎（`src/engine.ts`），端口 3001
+- `web/` — React + TypeScript + Vite + React Flow 前端，端口 5173（`/api` 代理到 3001）
+
+## API
+
+- `GET /api/workflows` — 工作流列表
+- `GET /api/workflows/:id/graph` — 节点、边与校验错误（非法工作流返回 `errors`，前端据此阻止运行/回放）
+- `POST /api/workflows/:id/executions` — 启动执行（非法工作流返回 422）；异步执行，立即返回 `running` 记录
+- `GET /api/workflows/:id/executions` — 历史执行列表
+- `GET /api/executions/:id` — 执行详情（含带时间戳的节点状态事件流）
+
+## 常用命令
+
+```bash
+npm install          # 安装全部 workspace 依赖
+npm test             # vitest：26 个回归测试（校验/引擎/回放/API）
+npm run typecheck    # server + web 的 tsc --noEmit
+npm run build        # web 生产构建（含类型检查）
+npm run start --workspace server   # 启动后端 :3001
+npm run dev --workspace web        # 启动前端 :5173
+```
+
+## 内置示例数据
+
+- `order-pipeline`：合法的订单流水线（5 节点钻石型 DAG）
+- `cyclic-workflow` / `broken-workflow`：循环依赖 / 缺失依赖的非法工作流，用于验证错误提示与阻断
+- 种子执行记录：`exec-success-1`（成功）、`exec-failed-1`（扣款失败、下游跳过）、`exec-legacy-1`（事件顺序与拓扑不一致且缺少 notify 节点记录，用于验证回放警告）
